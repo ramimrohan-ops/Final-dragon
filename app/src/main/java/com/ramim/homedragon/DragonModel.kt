@@ -123,8 +123,21 @@ class DragonModel {
         val strength = 0.65f + 0.35f * sin(t * 0.43f + 2f)
         return smooth01((v - 0.05f) / 0.45f) * strength
     }
-    /** Opacity of the wing skin relative to the rest of the dragon (1 = same, lower = more see-through). Set by the view. */
-    @JvmField var membraneAlpha = 1f
+    // see-through: the whole dragon is drawn into one layer (groupAlpha); the wing skin and the rest are scaled inside it
+    private var groupAlpha = 1f
+    private var membraneAlpha = 1f
+    private var bodyRel = 1f
+
+    /**
+     * Transparency sliders: 0 = solid, 100 = barely visible (10% left). Body covers everything but the wing skin,
+     * wing covers only the thin skin between the wing bones. The two work independently.
+     */
+    fun setTransparency(bodyPct: Int, wingPct: Int) {
+        val ob = 1f - 0.9f * bodyPct.coerceIn(0, 100) / 100f
+        val ow = 1f - 0.9f * wingPct.coerceIn(0, 100) / 100f
+        val a = max(ob, ow)
+        groupAlpha = a; membraneAlpha = ow / a; bodyRel = ob / a
+    }
 
     /** Draws fn into a layer composited with alpha a (same transform). */
     private inline fun layer(c: Canvas, a: Float, fn: () -> Unit) {
@@ -744,7 +757,11 @@ class DragonModel {
         c.translate(s.x, s.y)
         c.scale(s.face * s.ds, s.ds)
         if (s.pitch != 0f) { c.translate(0f, -40f); c.rotate(deg(s.pitch)); c.translate(0f, 40f) }
-        drawAwake(c, s, true)
+        if (groupAlpha < 0.995f) {
+            val sv = c.saveLayerAlpha(-360f, -260f, 360f, 90f, (groupAlpha * 255f).toInt())
+            drawAwake(c, s, true)
+            c.restoreToCount(sv)
+        } else drawAwake(c, s, true)
         c.restore()
     }
 
@@ -778,10 +795,15 @@ class DragonModel {
         }
         fSc *= 0.94f
 
-        wing(c, fsx, fsy, fA1, fA2, fDb, fFan, fSc, true, 2)
-        leg(c, s, 1, true, true)
-        leg(c, s, 3, false, true)
+        val br = bodyRel
+        wing(c, fsx, fsy, fA1, fA2, fDb, fFan, fSc, true, 0)
+        layer(c, br) {
+            wing(c, fsx, fsy, fA1, fA2, fDb, fFan, fSc, true, 1)
+            leg(c, s, 1, true, true)
+            leg(c, s, 3, false, true)
+        }
         if (wf < 0.999f) layer(c, 1f - wf) { wing(c, shx, shy, nA1, nA2, nDb, nFan, nSc, false, 0) }
+        layer(c, br) {
 
         // body tube
         var minY = 1e9f; var maxY = -1e9f
@@ -858,6 +880,7 @@ class DragonModel {
         if (wf < 0.999f) layer(c, 1f - wf) { wing(c, shx, shy, nA1, nA2, nDb, nFan, nSc, false, 1) }
         if (withHead) drawHead(c, s)
         if (scratching) leg(c, s, 0, true, false)        // the raised paw is drawn over the face
+        }
     }
 
     /** Head only (no body, wings or legs), with the head base at (s.x, s.y). Used by the in-app preview. */

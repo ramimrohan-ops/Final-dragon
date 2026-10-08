@@ -471,7 +471,6 @@ class DragonView(context: Context) : View(context) {
     private var pq = 1f             // particle quality 0.1..1 (fire, smoke, sparks), separate from the frame-rate Quality
     private var q = 1f              // quality 0.1..1
     private var spdMul = 1f         // dragon speed 0.5..1.5
-    private var bodyAlpha = 0.5f    // dragon opacity 0.1..0.9 (1 - Transparency)
     private var capF = 200
     private var capS = 60
     private var capP = 90
@@ -488,11 +487,8 @@ class DragonView(context: Context) : View(context) {
         q = clampF(Prefs.qualityPct(context) / 100f, 0.1f, 1f)
         pq = clampF(Prefs.particlePct(context) / 100f, 0.1f, 1f)
         spdMul = clampF(Prefs.speedPct(context) / 100f, 0.5f, 1.5f)
-        // transparency: the whole dragon fades as one layer; only the wing skin is extra see-through
-        val tb = clampF(Prefs.transparencyPct(context) / 100f, 0.1f, 0.9f)
-        val tw = clampF(Prefs.wingTransPct(context) / 100f, 0.1f, 0.9f)
-        bodyAlpha = 1f - tb
-        model.membraneAlpha = clampF((1f - tw) / (1f - tb), 0.05f, 1f)
+        // transparency: 0 = solid .. 100 = barely visible; the model draws the whole dragon as one fading layer
+        model.setTransparency(Prefs.transparencyPct(context), Prefs.wingTransPct(context))
         capF = (70 + 130 * pq).toInt().coerceIn(70, maxF)
         capS = (20 + 40 * pq).toInt().coerceIn(20, maxS)
         capP = (30 + 60 * pq).toInt().coerceIn(30, maxP)
@@ -1099,16 +1095,7 @@ class DragonView(context: Context) : View(context) {
         val saved = if (layer) c.saveLayerAlpha(0f, 0f, width.toFloat(), height.toFloat(), (fade * 255f).toInt()) else 0
         for (ic in icons) if (ic.burn > 0.01f || ic.heat > 0.02f) drawBurn(c, ic)
         drawSmoke(c)
-        if (bodyAlpha < 0.995f) {
-            // the whole dragon in one layer, so wings and body don't show through each other
-            val pad = 190f * ds
-            val bl = c.saveLayerAlpha(
-                max(0f, st.x - pad), max(0f, st.y - pad), min(width.toFloat(), st.x + pad), min(height.toFloat(), st.y + pad * 0.45f),
-                (bodyAlpha * 255f).toInt()
-            )
-            model.draw(c, st)
-            c.restoreToCount(bl)
-        } else model.draw(c, st)
+        model.draw(c, st)
         drawFlame(c)
         if (layer) c.restoreToCount(saved)
     }

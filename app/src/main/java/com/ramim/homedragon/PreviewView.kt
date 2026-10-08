@@ -39,6 +39,7 @@ class PreviewView(context: Context, private val kind: Int) : View(context) {
         const val QUALITY = 1
         const val PARTICLES = 2
         const val FLYING = 3
+        const val SEETHROUGH = 4
         private const val FLY_W = 256f               // flying pose: width in model units
         private const val FLY_H = 250f               // flying pose: height in model units
         private const val FLY_CX = -31.5f            // flying pose: horizontal centre
@@ -157,6 +158,15 @@ class PreviewView(context: Context, private val kind: Int) : View(context) {
         if (!running) { if (kind == PARTICLES) warm(); invalidate() }
     }
 
+    private var bodyT = 50
+    private var wingT = 65
+
+    /** See-through preview: Transparency (body) and Wing transparency, both 0..100. */
+    fun setTransparency(body: Int, wing: Int) {
+        bodyT = body; wingT = wing
+        invalidate()
+    }
+
     fun start() {
         if (running) return
         running = true
@@ -214,7 +224,7 @@ class PreviewView(context: Context, private val kind: Int) : View(context) {
         nextBlink -= dt
         if (nextBlink <= 0f) { blink = 0.14f; nextBlink = 2f + rnd() * 3f }
         if (blink > 0f) blink -= dt
-        if (kind == FLYING) wingPh += dt * 6.2832f * 2.2f
+        if (kind == FLYING || kind == SEETHROUGH) wingPh += dt * 6.2832f * 2.2f
         if (kind == PARTICLES) step(dt)
     }
 
@@ -342,6 +352,7 @@ class PreviewView(context: Context, private val kind: Int) : View(context) {
             SIZE -> drawSize(c, w, h)
             QUALITY -> drawFps(c, w, h, false)
             FLYING -> drawFps(c, w, h, true)
+            SEETHROUGH -> drawSeeThrough(c, w, h)
             else -> drawParticles(c, w, h)
         }
         c.restore()
@@ -424,6 +435,54 @@ class PreviewView(context: Context, private val kind: Int) : View(context) {
         textFill.textSize = dp(12f); textFill.color = Color.WHITE
         textFill.setShadowLayer(dp(6f), 0f, dp(1.5f), Color.argb(235, 0, 0, 0))
         c.drawText("fps", rx, ny + dp(14f), textFill)
+        textFill.setShadowLayer(0f, 0f, 0f, 0)
+        textFill.textAlign = Paint.Align.CENTER
+    }
+
+    private val tileCols = intArrayOf(
+        Color.parseColor("#E8574A"), Color.parseColor("#F2B134"), Color.parseColor("#4CB86B"),
+        Color.parseColor("#3D8BE8"), Color.parseColor("#A66BE0"), Color.parseColor("#EDEDED")
+    )
+
+    /** The dragon hovering over a grid of dummy app icons, so the see-through effect shows. */
+    private fun drawSeeThrough(c: Canvas, w: Float, h: Float) {
+        // dummy icons: 3 columns, as many rows as fit
+        val tile = w * 0.24f
+        val gap = (w - 3f * tile) / 4f
+        val rows = max(1, ((h - gap) / (tile + gap)).toInt())
+        val top = (h - (rows * tile + (rows - 1) * gap)) / 2f
+        val r = tile * 0.24f
+        for (ry in 0 until rows) for (cx in 0 until 3) {
+            val x0 = gap + cx * (tile + gap); val y0 = top + ry * (tile + gap)
+            val k = (ry * 3 + cx) % tileCols.size
+            fill.shader = LinearGradient(0f, y0, 0f, y0 + tile, tileCols[k], Color.argb(255,
+                (Color.red(tileCols[k]) * 0.62f).toInt(), (Color.green(tileCols[k]) * 0.62f).toInt(), (Color.blue(tileCols[k]) * 0.62f).toInt()),
+                Shader.TileMode.CLAMP)
+            c.drawRoundRect(x0, y0, x0 + tile, y0 + tile, r, r, fill)
+            fill.shader = null
+            fill.color = Color.argb(200, 255, 255, 255)
+            when (k % 3) {
+                0 -> c.drawCircle(x0 + tile / 2f, y0 + tile / 2f, tile * 0.22f, fill)
+                1 -> c.drawRoundRect(x0 + tile * 0.28f, y0 + tile * 0.28f, x0 + tile * 0.72f, y0 + tile * 0.72f, tile * 0.08f, tile * 0.08f, fill)
+                else -> c.drawRoundRect(x0 + tile * 0.24f, y0 + tile * 0.42f, x0 + tile * 0.76f, y0 + tile * 0.58f, tile * 0.07f, tile * 0.07f, fill)
+            }
+        }
+        // dragon hovering in the middle, wings spread
+        sit(st, t)
+        st.sp = 1f
+        st.head = model.restHead(1f, 0f)
+        st.wingPh = wingPh + 0.6f
+        st.bob = 0f
+        val ds = min(w * 0.96f / FLY_W, h * 0.86f / FLY_H)
+        st.ds = ds
+        st.x = w / 2f - FLY_CX * ds
+        st.y = h / 2f - FLY_CY * ds
+        model.setTransparency(bodyT, wingT)
+        model.draw(c, st)
+        textFill.textAlign = Paint.Align.LEFT
+        textFill.textSize = dp(9.5f); textFill.color = Color.parseColor("#B8C6E4")
+        textFill.setShadowLayer(dp(3f), 0f, dp(1f), Color.argb(220, 0, 0, 0))
+        c.drawText("body $bodyT% - wings $wingT%", dp(8f), h - dp(7f), textFill)
         textFill.setShadowLayer(0f, 0f, 0f, 0)
         textFill.textAlign = Paint.Align.CENTER
     }

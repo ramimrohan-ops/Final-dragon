@@ -120,6 +120,16 @@ Four sliders, all in steps of 10% (Quality and Particles 10-100%, Size and Speed
 
 The home-screen dragon is hidden and stopped for as long as the Home Dragon app is open. The previews only animate while you drag a slider and hold the last picture otherwise. Pressing Home brings the dragon back at once. The preview fire is a separate, simplified copy of the real fire effect with the same colours and particle counts.
 
+## v2.21 changes
+
+| Change | Detail |
+|---|---|
+| Transparency scale | Both sliders now run 0% to 100% in steps of 10%. 0% = fully solid, 100% = barely visible (about 10% left, so the dragon never disappears). Defaults 50% (body) and 65% (wings) |
+| Independent sliders | Transparency covers the body, wing bones, spikes and claws. Wing transparency covers only the thin wing skin and works on its own, so the skin can be more solid or more see-through than the body |
+| Layout | In the Visual card the two sliders sit on the left and one preview box on the right |
+| Preview box | The dragon hovering with wings spread over dummy app icons, so the see-through effect is visible. Animates while a slider is dragged |
+| Fade | The whole dragon is drawn into one layer and faded as a unit; fire, glow, smoke and the charge-up stay at full brightness. At 0% / 0% no layer is used |
+
 ## v2.20 changes
 
 | Change | Detail |

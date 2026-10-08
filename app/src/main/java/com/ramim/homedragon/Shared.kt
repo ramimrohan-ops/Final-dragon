@@ -60,8 +60,8 @@ object Prefs {
     fun speedPct(c: Context) = snap(sp(c).getInt("speed", 100), 50, 150)          // dragon speed, 50..150
     fun qualityPct(c: Context) = snap(sp(c).getInt("quality", 100), 10, 100)      // frame rate, 10..100
     fun particlePct(c: Context) = snap(sp(c).getInt("particles", 100), 10, 100)   // fire, smoke and sparks, 10..100
-    fun transparencyPct(c: Context) = snap(sp(c).getInt("transparency", 50), 10, 90)     // whole dragon, 10..90
-    fun wingTransPct(c: Context) = snap(sp(c).getInt("wing_transparency", 65), 10, 90)   // wing skin, 10..90
+    fun transparencyPct(c: Context) = snap(sp(c).getInt("transparency", 50), 0, 100)     // whole dragon, 0 = solid .. 100 = barely visible
+    fun wingTransPct(c: Context) = snap(sp(c).getInt("wing_transparency", 65), 0, 100)   // wing skin, 0 = solid .. 100 = barely visible
     fun cols(c: Context) = sp(c).getInt("cols", 4)
     fun rows(c: Context) = sp(c).getInt("rows", 6)
     fun enabled(c: Context) = sp(c).getBoolean("enabled", false)
