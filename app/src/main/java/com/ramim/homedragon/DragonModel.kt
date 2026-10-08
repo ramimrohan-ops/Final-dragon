@@ -123,6 +123,9 @@ class DragonModel {
         val strength = 0.65f + 0.35f * sin(t * 0.43f + 2f)
         return smooth01((v - 0.05f) / 0.45f) * strength
     }
+    /** Opacity of the wing skin relative to the rest of the dragon (1 = same, lower = more see-through). Set by the view. */
+    @JvmField var membraneAlpha = 1f
+
     /** Draws fn into a layer composited with alpha a (same transform). */
     private inline fun layer(c: Canvas, a: Float, fn: () -> Unit) {
         if (a >= 0.999f) { fn(); return }
@@ -660,6 +663,9 @@ class DragonModel {
         path.close()
 
         if (doMem) {
+            // the thin wing skin can be more see-through than the rest of the dragon (Wing transparency slider)
+            val memA = membraneAlpha
+            val memLayer = if (memA < 0.999f) c.saveLayerAlpha(-360f, -260f, 360f, 90f, (memA * 255f).toInt()) else -1
             val top = min(min(min(shy, ey), min(wy, tipY[0])), tipY[1]) - 2f
             val bot = max(max(atty, tipY[3]), max(tipY[2], tipY[1])) + 2f
             val y1 = max(top + 20f, bot)
@@ -671,6 +677,7 @@ class DragonModel {
             for (k in 0 until 4) c.drawLine(wx, wy, wx + (tipX[k] - wx) * 0.9f, wy + (tipY[k] - wy) * 0.9f, stroke)
             stroke.color = if (far) Color.argb(178, 30, 8, 16) else Color.argb(191, 40, 10, 20); stroke.strokeWidth = 1.1f
             c.drawPath(path, stroke)
+            if (memLayer >= 0) c.restoreToCount(memLayer)
         }
         if (!doBone) return
 

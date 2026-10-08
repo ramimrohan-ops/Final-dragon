@@ -92,7 +92,7 @@ class DragonView(context: Context) : View(context) {
     private var acc = 0f
     private var walkTo = 0f
     private var fireDur = 1.7f
-    private val CHARGE_T = 1.5f           // charge-up before every fire breath: tail tip -> spine spikes -> neck -> orb in the mouth
+    private val CHARGE_T = 2.0f           // charge-up before every fire breath: tail tip -> spine spikes -> neck -> orb in the mouth
     private var fireFt = -1f              // time since the breath itself started (negative while charging)
     private val cbx = FloatArray(16); private val cby = FloatArray(16); private val ctx = FloatArray(16); private val cty = FloatArray(16); private val cfr = FloatArray(16)
     private val orbP = FloatArray(2)
@@ -471,6 +471,7 @@ class DragonView(context: Context) : View(context) {
     private var pq = 1f             // particle quality 0.1..1 (fire, smoke, sparks), separate from the frame-rate Quality
     private var q = 1f              // quality 0.1..1
     private var spdMul = 1f         // dragon speed 0.5..1.5
+    private var bodyAlpha = 0.5f    // dragon opacity 0.1..0.9 (1 - Transparency)
     private var capF = 200
     private var capS = 60
     private var capP = 90
@@ -487,6 +488,11 @@ class DragonView(context: Context) : View(context) {
         q = clampF(Prefs.qualityPct(context) / 100f, 0.1f, 1f)
         pq = clampF(Prefs.particlePct(context) / 100f, 0.1f, 1f)
         spdMul = clampF(Prefs.speedPct(context) / 100f, 0.5f, 1.5f)
+        // transparency: the whole dragon fades as one layer; only the wing skin is extra see-through
+        val tb = clampF(Prefs.transparencyPct(context) / 100f, 0.1f, 0.9f)
+        val tw = clampF(Prefs.wingTransPct(context) / 100f, 0.1f, 0.9f)
+        bodyAlpha = 1f - tb
+        model.membraneAlpha = clampF((1f - tw) / (1f - tb), 0.05f, 1f)
         capF = (70 + 130 * pq).toInt().coerceIn(70, maxF)
         capS = (20 + 40 * pq).toInt().coerceIn(20, maxS)
         capP = (30 + 60 * pq).toInt().coerceIn(30, maxP)
@@ -965,7 +971,7 @@ class DragonView(context: Context) : View(context) {
                 // charge-up first (see drawCharge), then the breath; the mouth opens halfway while the orb grows
                 val ft = t - CHARGE_T
                 fireFt = ft
-                st.mouth = if (ft < 0f) 0.5f * smooth(1f, CHARGE_T, t) else clampF(min(0.5f + ft / 0.5f, (fireDur - ft) / 0.25f), 0f, 1f)
+                st.mouth = if (ft < 0f) 0.5f * smooth(CHARGE_T - 0.5f, CHARGE_T, t) else clampF(min(0.5f + ft / 0.5f, (fireDur - ft) / 0.25f), 0f, 1f)
                 model.headLocal(st.sp, st.walk, hl); val hx = hl[0]; val hy = hl[1]
                 val ang = atan2(c.cy - (st.y + (hy + st.bob) * ds), max(8f, abs(c.cx - (st.x + st.face * hx * ds))))
                 headGoal = clampF(ang, -0.6f, 1.0f)
@@ -1093,7 +1099,16 @@ class DragonView(context: Context) : View(context) {
         val saved = if (layer) c.saveLayerAlpha(0f, 0f, width.toFloat(), height.toFloat(), (fade * 255f).toInt()) else 0
         for (ic in icons) if (ic.burn > 0.01f || ic.heat > 0.02f) drawBurn(c, ic)
         drawSmoke(c)
-        model.draw(c, st)
+        if (bodyAlpha < 0.995f) {
+            // the whole dragon in one layer, so wings and body don't show through each other
+            val pad = 190f * ds
+            val bl = c.saveLayerAlpha(
+                max(0f, st.x - pad), max(0f, st.y - pad), min(width.toFloat(), st.x + pad), min(height.toFloat(), st.y + pad * 0.45f),
+                (bodyAlpha * 255f).toInt()
+            )
+            model.draw(c, st)
+            c.restoreToCount(bl)
+        } else model.draw(c, st)
         drawFlame(c)
         if (layer) c.restoreToCount(saved)
     }
@@ -1178,8 +1193,8 @@ class DragonView(context: Context) : View(context) {
     private fun drawCharge(c: Canvas) {
         val amt = if (fireFt < 0f) smooth(0f, 0.2f, t) else 1f - smooth(0f, 0.35f, fireFt)
         if (amt <= 0.01f) return
-        val fw = clampF((t - 0.1f) / 1.0f, 0f, 1f) * 0.95f          // position of the wave front along the spine
-        val gt = clampF((t - 1.0f) / 0.5f, 0f, 1f)                   // gathering into the mouth
+        val fw = clampF((t - 0.1f) / (CHARGE_T - 0.6f), 0f, 1f) * 0.95f   // position of the wave front along the spine (1.4 s)
+        val gt = clampF((t - (CHARGE_T - 0.5f)) / 0.5f, 0f, 1f)           // gathering into the mouth (last 0.5 s)
         val n = model.chargePoints(st, cbx, cby, ctx, cty, cfr)
         val pulse = 0.8f + 0.2f * sin(time * 22f)
         var lastLit = 0f
@@ -1190,13 +1205,13 @@ class DragonView(context: Context) : View(context) {
             val b = min(1f, lit * 0.62f * (0.85f + 0.15f * sin(time * 18f + k * 0.9f)) + flash * 0.85f) * amt
             if (b <= 0.01f) continue
             if (k == n - 1) lastLit = b
-            plusPaint.alpha = (b * 0.55f * 255f).toInt(); sprite(c, sBlue, cbx[k], cby[k], 4.6f * ds * (0.8f + 0.4f * flash), plusPaint)
-            plusPaint.alpha = (b * 0.9f * 255f).toInt(); sprite(c, sCyan, ctx[k], cty[k], 5.4f * ds * (0.7f + 0.3f * b), plusPaint)
-            plusPaint.alpha = (b * 255f).toInt(); sprite(c, sCore, ctx[k], cty[k], 2.4f * ds * (0.6f + 0.4f * b), plusPaint)
+            plusPaint.alpha = (b * 0.55f * 255f).toInt(); sprite(c, sBlue, cbx[k], cby[k], 5.5f * ds * (0.8f + 0.4f * flash), plusPaint)
+            plusPaint.alpha = (b * 0.9f * 255f).toInt(); sprite(c, sCyan, ctx[k], cty[k], 6.5f * ds * (0.7f + 0.3f * b), plusPaint)
+            plusPaint.alpha = (b * 255f).toInt(); sprite(c, sCore, ctx[k], cty[k], 2.9f * ds * (0.6f + 0.4f * b), plusPaint)
             if (k + 1 < n) {
                 val b2 = min(1f, smooth(0f, 0.08f, fw - cfr[k + 1] + 0.04f) * 0.62f) * amt
                 val mb = (b + b2) * 0.5f
-                if (mb > 0.02f) { plusPaint.alpha = (mb * 0.45f * 255f).toInt(); sprite(c, sCyan, (cbx[k] + cbx[k + 1]) * 0.5f, (cby[k] + cby[k + 1]) * 0.5f, 3.6f * ds, plusPaint) }
+                if (mb > 0.02f) { plusPaint.alpha = (mb * 0.45f * 255f).toInt(); sprite(c, sCyan, (cbx[k] + cbx[k + 1]) * 0.5f, (cby[k] + cby[k + 1]) * 0.5f, 4.3f * ds, plusPaint) }
             }
         }
         // bright head of the wave while it travels
@@ -1205,8 +1220,8 @@ class DragonView(context: Context) : View(context) {
             while (k + 1 < n - 1 && cfr[k + 1] < fw) k++
             val u = clampF((fw - cfr[k]) / max(0.01f, cfr[k + 1] - cfr[k]), 0f, 1f)
             val wx = lerp3(cbx[k], cbx[k + 1], u); val wy = lerp3(cby[k], cby[k + 1], u)
-            plusPaint.alpha = (0.9f * amt * 255f).toInt(); sprite(c, sCyan, wx, wy, 7f * ds, plusPaint)
-            plusPaint.alpha = (amt * 255f).toInt(); sprite(c, sCore, wx, wy, 3.2f * ds, plusPaint)
+            plusPaint.alpha = (0.9f * amt * 255f).toInt(); sprite(c, sCyan, wx, wy, 8.4f * ds, plusPaint)
+            plusPaint.alpha = (amt * 255f).toInt(); sprite(c, sCore, wx, wy, 3.8f * ds, plusPaint)
         }
         // gather: the glow streams from the neck into the mouth and grows into an orb a little smaller than the mouth opening
         if (gt > 0f && fireFt < 0f && n > 1) {

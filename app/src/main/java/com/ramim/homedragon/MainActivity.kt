@@ -92,7 +92,8 @@ class MainActivity : Activity() {
     private inner class Slider(
         title: String, hint: String, val min: Int, val max: Int, start: Int,
         private val save: (Int) -> Unit, private val live: () -> Unit, private val step: Int = 1,
-        private val previews: List<PreviewView> = emptyList(), previewDp: Int = 150
+        private val previews: List<PreviewView> = emptyList(), previewDp: Int = 150,
+        private val def: Int = 100
     ) {
         val value = text("$start%", 15f, TEAL, true)
         val seek = SeekBar(this@MainActivity)
@@ -164,7 +165,7 @@ class MainActivity : Activity() {
                 .apply { topMargin = dp(4) })
         }
 
-        fun reset() { seek.progress = (100 - min) / step; save(100); live() }
+        fun reset() { seek.progress = (def - min) / step; save(def); live() }
 
         fun release() { previews.forEach { it.stop() } }
     }
@@ -320,8 +321,10 @@ class MainActivity : Activity() {
         settings.addView(divider()); settings.addView(speed.view)
         col.addView(settings)
 
-        // flame colours: live preview and the colour picker (blue is the default)
+        // visual: flame colours (live preview + picker, blue is the default) and the two transparency sliders
         val flame = card()
+        flame.addView(text("Visual", 12f, MUTED, true))
+        flame.addView(View(this), LinearLayout.LayoutParams(1, dp(8)))
         val fHead = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         fHead.addView(text("Flame colours", 15f, FG, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         flame.addView(fHead)
@@ -341,6 +344,20 @@ class MainActivity : Activity() {
         }
         fHead.addView(fReset)
         flame.addView(picker.view)
+
+        val transp = Slider(
+            "Transparency", "Steps of 10%. Higher = more see-through. Fire and glow stay bright.",
+            10, 90, Prefs.transparencyPct(this), { Prefs.setTransparencyPct(this, it) }, { DragonService.instance?.view?.reloadSettings() },
+            step = 10, def = 50
+        )
+        val wingTransp = Slider(
+            "Wing transparency", "Only the thin wing skin between the bones.",
+            10, 90, Prefs.wingTransPct(this), { Prefs.setWingTransPct(this, it) }, { DragonService.instance?.view?.reloadSettings() },
+            step = 10, def = 65
+        )
+        sliders.addAll(listOf(transp, wingTransp))
+        flame.addView(divider()); flame.addView(transp.view)
+        flame.addView(divider()); flame.addView(wingTransp.view)
         col.addView(flame)
 
         // setup rows

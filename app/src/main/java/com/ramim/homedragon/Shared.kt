@@ -60,6 +60,8 @@ object Prefs {
     fun speedPct(c: Context) = snap(sp(c).getInt("speed", 100), 50, 150)          // dragon speed, 50..150
     fun qualityPct(c: Context) = snap(sp(c).getInt("quality", 100), 10, 100)      // frame rate, 10..100
     fun particlePct(c: Context) = snap(sp(c).getInt("particles", 100), 10, 100)   // fire, smoke and sparks, 10..100
+    fun transparencyPct(c: Context) = snap(sp(c).getInt("transparency", 50), 10, 90)     // whole dragon, 10..90
+    fun wingTransPct(c: Context) = snap(sp(c).getInt("wing_transparency", 65), 10, 90)   // wing skin, 10..90
     fun cols(c: Context) = sp(c).getInt("cols", 4)
     fun rows(c: Context) = sp(c).getInt("rows", 6)
     fun enabled(c: Context) = sp(c).getBoolean("enabled", false)
@@ -68,6 +70,8 @@ object Prefs {
     fun setSpeedPct(c: Context, v: Int) = sp(c).edit().putInt("speed", v).apply()
     fun setQualityPct(c: Context, v: Int) = sp(c).edit().putInt("quality", v).apply()
     fun setParticlePct(c: Context, v: Int) = sp(c).edit().putInt("particles", v).apply()
+    fun setTransparencyPct(c: Context, v: Int) = sp(c).edit().putInt("transparency", v).apply()
+    fun setWingTransPct(c: Context, v: Int) = sp(c).edit().putInt("wing_transparency", v).apply()
     fun setCols(c: Context, v: Int) = sp(c).edit().putInt("cols", v).apply()
     fun setRows(c: Context, v: Int) = sp(c).edit().putInt("rows", v).apply()
     fun setEnabled(c: Context, v: Boolean) = sp(c).edit().putBoolean("enabled", v).apply()
